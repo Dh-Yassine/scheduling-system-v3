@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Schedule Management</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <header class="page-header">
+        <div class="container">
+            <h1>Schedule Management System</h1>
+        </div>
+    </header>
+
+    <div class="container mt-5">
+        <h2>Schedule Management</h2>
+        
+        <!-- Excel Upload Form -->
+        <div class="card mb-4">
+            <div class="card-header">
+                Import Schedules from Excel
+            </div>
+            <div class="card-body">
+                <form th:action="@{/excel/upload}" method="post" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Select Excel File</label>
+                        <input type="file" class="form-control" id="file" name="file" accept=".xlsx,.xls" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Add success message display -->
+        <div th:if="${param.success}" class="alert alert-success alert-dismissible fade show" role="alert">
+            File uploaded successfully!
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+
+        <!-- Add this after the Schedule Management heading -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        Notifications
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group">
+                            <div th:each="notification : ${notifications}" class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <p class="mb-1" th:text="${notification.message}"></p>
+                                    <small th:text="${#temporals.format(notification.sentAt, 'yyyy-MM-dd HH:mm')}"></small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        Notifications
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group">
+                            <div th:each="notification : ${notifications}" class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <p class="mb-1" th:text="${notification.message}"></p>
+                                    <small th:text="${#temporals.format(notification.sentAt, 'yyyy-MM-dd HH:mm')}"></small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add New Schedule Form -->
+        <div class="card mb-4">
+            <div class="card-header">
+                Add New Schedule
+            </div>
+            <div class="card-body">
+                <form th:action="@{/schedules}" method="post" th:object="${newSchedule}">
+                    <div class="mb-3">
+                        <label class="form-label">Room</label>
+                        <select name="roomId" class="form-control" required>
+                            <option value="">Select Room</option>
+                            <option th:each="room : ${rooms}"
+                                    th:value="${room.id}"
+                                    th:text="${room.name}">
+                            </option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Professor</label>
+                        <select name="professorId" class="form-control" required>
+                            <option value="">Select Professor</option>
+                            <option th:each="professor : ${professors}"
+                                    th:value="${professor.id}"
+                                    th:text="${professor.name}">
+                            </option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Course</label>
+                        <select name="courseId" class="form-control" required>
+                            <option value="">Select Course</option>
+                            <option th:each="course : ${courses}"
+                                    th:value="${course.id}"
+                                    th:text="${course.description}">
+                            </option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Start Time</label>
+                        <input type="datetime-local" class="form-control" th:field="*{startTime}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">End Time</label>
+                        <input type="datetime-local" class="form-control" th:field="*{endTime}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Section</label>
+                        <input type="text" class="form-control" th:field="*{section}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Level</label>
+                        <input type="text" class="form-control" th:field="*{level}" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Schedule</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="stats-card bg-primary">
+                    <h3>Total Schedules</h3>
+                    <p class="h2" th:text="${schedulesCount}">0</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-success">
+                    <div class="card-body">
+                        <h5 class="card-title">Rooms</h5>
+                        <p class="card-text" th:text="${roomsCount}">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-info">
+                    <div class="card-body">
+                        <h5 class="card-title">Professors</h5>
+                        <p class="card-text" th:text="${professorsCount}">0</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-white bg-warning">
+                    <div class="card-body">
+                        <h5 class="card-title">Courses</h5>
+                        <p class="card-text" th:text="${coursesCount}">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Schedule List By Day -->
+        <div class="card mb-4" th:each="day : ${schedulesByDay}">
+            <div class="card-header" th:text="${day.key}">Day</div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Room</th>
+                                <th>Course</th>
+                                <th>Professor</th>
+                                <th>Section</th>
+                                <th>Level</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="schedule : ${day.value}">
+                                <td>
+                                    <span th:text="${#temporals.format(schedule.startTime, 'HH:mm')}"></span>
+                                    -
+                                    <span th:text="${#temporals.format(schedule.endTime, 'HH:mm')}"></span>
+                                </td>
+                                <td th:text="${schedule.room?.name}"></td>
+                                <td th:text="${schedule.course?.description}"></td>
+                                <td th:text="${schedule.professor?.name}"></td>
+                                <td th:text="${schedule.section}"></td>
+                                <td th:text="${schedule.level}"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Course List -->
+        <h1>Course List</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Professor</th>
+                    <th>Room</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="course : ${courses}">
+                    <td th:text="${course.description}">Description</td>
+                    <td th:text="${course.professor.name}">Professor</td>
+                    <td th:text="${course.room.name}">Room</td>
+                    <td th:text="${course.startTime}">Start Time</td>
+                    <td th:text="${course.endTime}">End Time</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
