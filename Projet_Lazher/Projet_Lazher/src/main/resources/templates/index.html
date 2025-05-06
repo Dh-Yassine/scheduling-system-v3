@@ -1,51 +1,39 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Schedule Management - Home</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="/css/style.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Scheduling System</title>
 </head>
 <body>
-    <header class="page-header">
-        <div class="container">
-            <h1>Welcome to Schedule Management</h1>
-        </div>
-    </header>
+<h1>Scheduling System</h1>
 
-    <div class="container">
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        Quick Actions
-                    </div>
-                    <div class="card-body">
-                        <div class="d-grid gap-3">
-                            <a href="/schedules" class="btn btn-primary">View Schedules</a>
-                            <a href="/professors" class="btn btn-secondary">Manage Professors</a>
-                            <a href="/rooms" class="btn btn-info">Manage Rooms</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        System Overview
-                    </div>
-                    <div class="card-body">
-                        <div class="stats-card bg-light mb-3">
-                            <h4>Total Schedules</h4>
-                            <p class="h2" th:text="${schedulesCount}">0</p>
-                        </div>
-                        <!-- Add more statistics as needed -->
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+<h2>Schedules</h2>
+<table border="1">
+    <tr>
+        <th>Course</th>
+        <th>Professor</th>
+        <th>Room</th>
+        <th>Time</th>
+    </tr>
+    <tr th:each="schedule : ${schedules}">
+        <td th:text="${schedule.course.name}"></td>
+        <td th:text="${schedule.professor.name}"></td>
+        <td th:text="${schedule.room.name}"></td>
+        <td th:text="${schedule.time}"></td>
+    </tr>
+</table>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<h2>Users</h2>
+<ul>
+    <li th:each="user : ${users}" th:text="${user.name}"></li>
+</ul>
+
+<h3>Add Schedule</h3>
+<form action="/schedule/add" method="post">
+    Course: <input type="text" name="courseName">
+    Professor: <input type="text" name="professorName">
+    Room: <input type="text" name="roomName">
+    Time: <input type="text" name="time">
+    <button type="submit">Add</button>
+</form>
 </body>
 </html>

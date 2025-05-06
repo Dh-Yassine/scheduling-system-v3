@@ -20,242 +20,244 @@ public class ExcelService {
     @Autowired private RoomService roomService;
     @Autowired private CourseService courseService;
 
-    // Define constants
-    private static final String[] DAYS = {"Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"};
-    private static final String[] TIME_SLOTS = {
-            "08:30 - 10:00", "10:15 - 11:45", "12:00 - 13:30", 
-            "13:00 - 14:30", "14:45 - 16:15", "16:30 - 18:00"
+    // Room columns (A, H, O, V, AC, AJ)
+    private static final int[] ROOM_COLUMNS = {0, 7, 14, 21, 28, 35};
+    
+    // Room rows (3, 6, 9, 12, 33, 36)
+    private static final int[] ROOM_ROWS = {2, 5, 8, 11, 32, 35};
+    
+    // Column offsets for each day's time slots
+    private static final int[] TIME_SLOT_OFFSETS = {
+        1,  // B-G for Monday
+        8,  // I-N for Tuesday
+        15, // P-U for Wednesday
+        22, // W-AB for Thursday
+        29, // AD-AI for Friday
+        36  // AL-AQ for Saturday
     };
     
-    // Each day has 6 columns (one for each time slot)
-    private static final int COLUMNS_PER_DAY = 6;
+    // Time slots for each day
+    private static final String[] TIME_SLOTS = {
+            "08:30 - 10:00", 
+            "10:15 - 11:45", 
+            "12:00 - 13:30",
+            "13:45 - 15:15", 
+            "15:30 - 17:00", 
+            "17:15 - 18:45"
+    };
     
-    // Starting column indices for each day
-    private static final int[] DAY_START_COLUMNS = {0, 6, 12, 18, 24, 30};
-    
-    // Row indices for different types of information
-    private static final int SECTION_ROW = 2;    // Row with section info
-    private static final int PROFESSOR_ROW = 3;  // Row with professor names
-    private static final int COURSE_ROW = 4;     // Row with course descriptions
-    private static final int ROOM_ROW = 5;       // Row with room names
+    // Days of the week
+    private static final String[] DAYS = {
+            "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"
+    };
 
     public void processExcelFile(MultipartFile file) throws IOException {
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
-            Sheet sheet = workbook.getSheetAt(0); // Or use getSheet("GroupeTD") if sheet name is known
-            if (sheet == null) {
-                throw new RuntimeException("Excel sheet not found!");
-            }
-
+            Sheet sheet = workbook.getSheetAt(0);
+            
             Map<String, Room> rooms = initializeRooms();
             Map<String, Professor> professors = new HashMap<>();
             List<Course> courses = new ArrayList<>();
 
-            // Process each day
-            for (int dayIndex = 0; dayIndex < DAYS.length; dayIndex++) {
-                String currentDay = DAYS[dayIndex];
-                int startColumn = DAY_START_COLUMNS[dayIndex];
-                
-                // Process each time slot for the current day
-                for (int slotIndex = 0; slotIndex < TIME_SLOTS.length; slotIndex++) {
-                    int currentColumn = startColumn + slotIndex;
-                    String currentTimeSlot = TIME_SLOTS[slotIndex];
+            // Process each room row block
+            for (int roomRowIndex : ROOM_ROWS) {
+                // Process each day
+                for (int dayIndex = 0; dayIndex < DAYS.length; dayIndex++) {
+                    // Get room from the room column
+                    String roomName = getCellValue(sheet, roomRowIndex, ROOM_COLUMNS[dayIndex]);
+                    if (isEmpty(roomName)) continue;
                     
-                    // Extract course information
-                    Course course = extractCourseInfo(
-                        sheet, 
-                        currentDay,
-                        currentTimeSlot, 
-                        currentColumn, 
-                        rooms, 
-                        professors
-                    );
+                    Room room = getOrCreateRoom(roomName, rooms);
                     
-                    if (course != null) {
-                        courses.add(course);
+                    // Process each time slot for this day
+                    int startCol = TIME_SLOT_OFFSETS[dayIndex];
+                    for (int slotIndex = 0; slotIndex < 6; slotIndex++) {
+                        int currentCol = startCol + slotIndex;
+                        
+                        // Get data from the three-row block
+                        String section = getCellValue(sheet, roomRowIndex, currentCol);      // Same row as room
+                        String professorName = getCellValue(sheet, roomRowIndex + 1, currentCol);  // One row below
+                        String courseDesc = getCellValue(sheet, roomRowIndex + 2, currentCol);     // Two rows below
+                        
+                        if (!isEmpty(professorName) && !isEmpty(courseDesc)) {
+                            Course course = createCourse(
+                                courseDesc,
+                                professorName,
+                                section,
+                                DAYS[dayIndex],
+                                TIME_SLOTS[slotIndex],
+                                room,
+                                professors
+                            );
+                            if (course != null) {
+                                System.out.println("Created course: " + courseDesc + " with professor: " + professorName + 
+                                    " in room: " + roomName + " for " + DAYS[dayIndex] + " at " + TIME_SLOTS[slotIndex]);
+                                courses.add(course);
+                            }
+                        }
                     }
                 }
             }
             
-            // Save all extracted courses
+            // Save all courses
             saveCourses(courses);
-            
             System.out.println("Successfully processed " + courses.size() + " courses");
+            
         } catch (Exception e) {
-            System.err.println("Error processing file: " + e.getMessage());
+            System.err.println("Error processing Excel file: " + e.getMessage());
             e.printStackTrace();
             throw new RuntimeException("Error processing Excel file: " + e.getMessage(), e);
         }
     }
 
-    private Course extractCourseInfo(
-            Sheet sheet, 
+    private Course createCourse(
+            String courseDesc,
+            String professorName,
+            String section,
             String day,
-            String timeSlot, 
-            int column, 
-            Map<String, Room> rooms, 
+            String timeSlot,
+            Room room,
             Map<String, Professor> professors) {
+            
+        if (isEmpty(courseDesc) || isEmpty(professorName)) return null;
         
-        // Extract section, professor, course description, and room
-        String section = getCellValue(sheet, SECTION_ROW, column);
-        String professorName = getCellValue(sheet, PROFESSOR_ROW, column);
-        String courseDesc = getCellValue(sheet, COURSE_ROW, column);
-        String roomName = getCellValue(sheet, ROOM_ROW, column);
-        
-        // Skip if we're missing essential information
-        if (isEmpty(section) || isEmpty(professorName) || isEmpty(courseDesc)) {
-            return null;  
+        try {
+            // Parse time
+            String[] times = timeSlot.split(" - ");
+            LocalDateTime startTime = parseTime(times[0]);
+            LocalDateTime endTime = parseTime(times[1]);
+            
+            // Get or create professor
+            Professor professor = getOrCreateProfessor(professorName, professors);
+            
+            // Create course
+            Course course = new Course();
+            course.setStartTime(startTime);
+            course.setEndTime(endTime);
+            course.setDescription(courseDesc);
+            course.setProfessor(professor);
+            course.setRoom(room);
+            course.setSection(section != null ? section : "Default");
+            
+            return course;
+        } catch (Exception e) {
+            System.err.println("Error creating course: " + courseDesc + " with professor: " + professorName + 
+                " - " + e.getMessage());
+            return null;
         }
-        
-        // Parse time slot - convert to LocalDateTime
-        String[] timeParts = timeSlot.split(" - ");
-        LocalDateTime startTime = parseTime(timeParts[0]);
-        LocalDateTime endTime = parseTime(timeParts[1]);
-        
-        // Validate and possibly swap professor name and course description
-        if (shouldSwapProfessorAndCourse(professorName, courseDesc)) {
-            String temp = professorName;
-            professorName = courseDesc;
-            courseDesc = temp;
-        }
-        
-        // Get or create room
-        Room room = null;
-        if (!isEmpty(roomName)) {
-            room = getOrCreateRoom(cleanRoomName(roomName), rooms);
-        }
-        
-        // Get or create professor
-        Professor professor = getOrCreateProfessor(professorName, professors);
-        
-        // Create course
-        Course course = new Course();
-        course.setStartTime(startTime);
-        course.setEndTime(endTime);
-        course.setSection(section);
-        course.setProfessor(professor);
-        course.setDescription(courseDesc);
-        course.setRoom(room);
-        
-        return course;
-    }
-
-    private LocalDateTime parseTime(String time) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
-        LocalTime localTime = LocalTime.parse(time, formatter);
-        return LocalDateTime.now().with(localTime); // Use current date with the parsed time
     }
 
     private Professor getOrCreateProfessor(String professorName, Map<String, Professor> professors) {
-        if (!professors.containsKey(professorName)) {
-            Professor newProfessor = new Professor(professorName);
-            newProfessor = professorService.saveProfessor(newProfessor);
-            professors.put(professorName, newProfessor);
+        if (isEmpty(professorName)) return null;
+        
+        try {
+            if (professors.containsKey(professorName)) {
+                return professors.get(professorName);
+            }
+            
+            // Try to find existing professor by name or email
+            String email = "ens" + professorName.toLowerCase().replaceAll("\\s+", ".") + "@isimm.u-monastir.tn";
+            Optional<Professor> existingProf = professorService.getProfessorByEmail(email);
+            if (!existingProf.isPresent()) {
+                existingProf = professorService.findByName(professorName);
+            }
+            
+            if (existingProf.isPresent()) {
+                professors.put(professorName, existingProf.get());
+                return existingProf.get();
+            }
+            
+            // Create new professor
+            Professor newProf = new Professor();
+            newProf.setName(professorName);
+            newProf.setEmail(email);
+            newProf.setDepartment("Default");
+            newProf.setTotalHours(0);
+            newProf.setRole("PROFESSOR");
+            
+            newProf = professorService.saveProfessor(newProf);
+            professors.put(professorName, newProf);
+            System.out.println("Created new professor: " + professorName);
+            return newProf;
+        } catch (Exception e) {
+            System.err.println("Error processing professor: " + professorName + " - " + e.getMessage());
+            return null;
         }
-        return professors.get(professorName);
     }
 
     private Room getOrCreateRoom(String roomName, Map<String, Room> rooms) {
-        // First try exact match
-        if (rooms.containsKey(roomName)) {
-            return rooms.get(roomName);
-        }
+        if (isEmpty(roomName)) return null;
         
-        // Next try a fuzzy match (room that contains this name)
-        for (Map.Entry<String, Room> entry : rooms.entrySet()) {
-            if (entry.getKey().contains(roomName) || roomName.contains(entry.getKey())) {
-                return entry.getValue();
+        try {
+            roomName = cleanRoomName(roomName);
+            
+            if (rooms.containsKey(roomName)) {
+                return rooms.get(roomName);
             }
+            
+            Room newRoom = new Room();
+            newRoom.setName(roomName);
+            newRoom.setCapacity(30);
+            newRoom.setType("Classroom");
+            newRoom.setIsAvailable(true);
+            
+            newRoom = roomService.saveRoom(newRoom);
+            rooms.put(roomName, newRoom);
+            System.out.println("Created new room: " + roomName);
+            return newRoom;
+        } catch (Exception e) {
+            System.err.println("Error processing room: " + roomName + " - " + e.getMessage());
+            return null;
         }
-        
-        // If not found, create a new room
-        Room newRoom = new Room(roomName, 30, "Classroom", true);
-        newRoom = roomService.saveRoom(newRoom);
-        rooms.put(roomName, newRoom);
-        return newRoom;
-    }
-
-    private boolean shouldSwapProfessorAndCourse(String professorName, String courseDesc) {
-        // Check if professor name looks like a course description (starts with "CR-")
-        // and course description looks like a professor name
-        return professorName != null && courseDesc != null && 
-               professorName.startsWith("CR-") && !courseDesc.startsWith("CR-");
-    }
-    
-    private String cleanRoomName(String roomName) {
-        if (roomName != null && roomName.contains("|")) {
-            return roomName.split("\\|")[0].trim();
-        }
-        return roomName;
     }
 
     private Map<String, Room> initializeRooms() {
         Map<String, Room> rooms = new HashMap<>();
-        List<Room> roomList = roomService.getAllRooms();
-        for (Room room : roomList) {
+        List<Room> existingRooms = roomService.getAllRooms();
+        for (Room room : existingRooms) {
             rooms.put(room.getName(), room);
         }
-        
-        // Add default room IDs if they don't exist in the database
-        String[] defaultRooms = {"A-KANOUN", "A-B", "C-01", "C-11", "A-01", "A-02"};
-        for (String roomId : defaultRooms) {
-            if (!rooms.containsKey(roomId)) {
-                Room newRoom = new Room(roomId, 30, "Classroom", true);
-                newRoom = roomService.saveRoom(newRoom);
-                rooms.put(roomId, newRoom);
-            }
-        }
-        
         return rooms;
     }
 
-    private String getCellValue(Sheet sheet, int rowIndex, int columnIndex) {
-        Row row = sheet.getRow(rowIndex);
-        if (row == null) {
-            return null;
-        }
-        
-        Cell cell = row.getCell(columnIndex);
-        if (cell == null) {
-            return null;
-        }
-        
-        String value = null;
-        switch (cell.getCellType()) {
-            case STRING:
-                value = cell.getStringCellValue();
-                break;
-            case NUMERIC:
-                if (DateUtil.isCellDateFormatted(cell)) {
-                    value = cell.getLocalDateTimeCellValue().toString();
-                } else {
-                    value = String.valueOf(cell.getNumericCellValue());
-                }
-                break;
-            case FORMULA:
-                try {
-                    value = cell.getStringCellValue();
-                } catch (Exception e) {
-                    try {
-                        value = String.valueOf(cell.getNumericCellValue());
-                    } catch (Exception ex) {
-                        value = cell.getCellFormula();
-                    }
-                }
-                break;
-            default:
-                value = null;
-        }
-        
-        return value != null ? value.trim() : null;
-    }
-    
-    private boolean isEmpty(String value) {
-        return value == null || value.trim().isEmpty();
-    }
-    
     private void saveCourses(List<Course> courses) {
         for (Course course : courses) {
-            courseService.saveCourse(course);
+            try {
+                courseService.saveCourse(course);
+            } catch (Exception e) {
+                System.err.println("Error saving course: " + course.getDescription() + " - " + e.getMessage());
+            }
         }
+    }
+
+    private LocalDateTime parseTime(String time) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+        LocalTime localTime = LocalTime.parse(time.trim(), formatter);
+        return LocalDateTime.now().with(localTime);
+    }
+
+    private String getCellValue(Sheet sheet, int row, int col) {
+        try {
+            Row r = sheet.getRow(row);
+            if (r == null) return "";
+            
+            Cell cell = r.getCell(col);
+            if (cell == null) return "";
+            
+            cell.setCellType(CellType.STRING);
+            return cell.getStringCellValue().trim();
+        } catch (Exception e) {
+            System.err.println("Error reading cell at row " + row + ", col " + col + " - " + e.getMessage());
+            return "";
+        }
+    }
+    
+    private String cleanRoomName(String roomName) {
+        if (roomName == null) return "";
+        return roomName.split("\\|")[0].trim();
+    }
+    
+    private boolean isEmpty(String str) {
+        return str == null || str.trim().isEmpty();
     }
 }

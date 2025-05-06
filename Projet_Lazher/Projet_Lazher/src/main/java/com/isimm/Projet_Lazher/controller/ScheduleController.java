@@ -39,6 +39,12 @@ public class ScheduleController {
     @GetMapping
     public String listSchedules(Model model) {
         try {
+            // Create a default user for now (you should replace this with actual user authentication)
+            User defaultUser = new User();
+            defaultUser.setName("Admin");
+            defaultUser.setRole("ADMIN");
+            model.addAttribute("user", defaultUser);
+            
             List<Schedule> schedules = scheduleService.getAllSchedules();
             logger.info("Found {} schedules", schedules.size());
             
@@ -60,6 +66,7 @@ public class ScheduleController {
             model.addAttribute("roomsCount", rooms.size());
             model.addAttribute("professorsCount", professors.size());
             model.addAttribute("coursesCount", courses.size());
+            model.addAttribute("notificationCount", 0); // Add default notification count
 
             // Group schedules by day for better display
             Map<DayOfWeek, List<Schedule>> schedulesByDay = schedules.stream()

@@ -1,235 +1,470 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <title>Schedule Management</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="/css/style.css" rel="stylesheet">
+    <title>ISIMM Schedule Management</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.0/main.min.css' rel='stylesheet' />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+        }
+
+        body {
+            background-color: #f5f6fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .dashboard-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .main-content {
+            flex: 1;
+            margin-left: 250px;
+            padding: 2rem;
+        }
+
+        .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 0.8rem 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-link.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .nav-link i {
+            margin-right: 0.5rem;
+        }
+
+        .container {
+            max-width: 1400px;
+        }
+
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+            margin-bottom: 1.5rem;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-header {
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+            padding: 15px 20px;
+        }
+
+        .btn {
+            border-radius: 8px;
+            padding: 8px 20px;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .table {
+            background-color: white;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .table th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .calendar-container {
+            background-color: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-top: 30px;
+        }
+
+        .fc {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .fc-event {
+            border-radius: 8px;
+            padding: 5px;
+            margin: 2px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .fc-event:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .fc-toolbar-title {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+        }
+
+        .fc-button {
+            background-color: var(--secondary-color) !important;
+            border: none !important;
+            border-radius: 8px !important;
+        }
+
+        .fc-button:hover {
+            background-color: var(--primary-color) !important;
+        }
+
+        .user-info {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 1rem;
+        }
+
+        .user-info img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-right: 1rem;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: var(--accent-color);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .action-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .action-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .action-card i {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+    </style>
 </head>
 <body>
-    <header class="page-header">
-        <div class="container">
-            <h1>Schedule Management System</h1>
-        </div>
-    </header>
-
-    <div class="container mt-5">
-        <h2>Schedule Management</h2>
-        
-        <!-- Excel Upload Form -->
-        <div class="card mb-4">
-            <div class="card-header">
-                Import Schedules from Excel
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="user-profile">
+                <div class="avatar">
+                    <img src="/images/default-avatar.png" alt="User Avatar">
+                </div>
+                <div class="user-info">
+                    <h4 th:text="${user != null ? user.name : 'Guest'}">User Name</h4>
+                    <p th:text="${user != null ? user.role : 'Guest'}">Role</p>
+                </div>
             </div>
-            <div class="card-body">
-                <form th:action="@{/excel/upload}" method="post" enctype="multipart/form-data">
-                    <div class="mb-3">
-                        <label for="file" class="form-label">Select Excel File</label>
-                        <input type="file" class="form-control" id="file" name="file" accept=".xlsx,.xls" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Upload</button>
-                </form>
-            </div>
-        </div>
-        
-        <!-- Add success message display -->
-        <div th:if="${param.success}" class="alert alert-success alert-dismissible fade show" role="alert">
-            File uploaded successfully!
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+
+            <nav class="mt-4">
+                <a href="#" class="nav-link active">
+                    <i class="bi bi-house-door"></i> Dashboard
+                </a>
+                <a href="#timetable" class="nav-link">
+                    <i class="bi bi-calendar3"></i> Timetable
+                </a>
+                
+                <!-- Admin Only -->
+                <div th:if="${user.role == 'ADMIN'}">
+                    <a href="#excel-upload" class="nav-link">
+                        <i class="bi bi-file-earmark-excel"></i> Import Excel
+                    </a>
+                    <a href="/rooms" class="nav-link">
+                        <i class="bi bi-building"></i> Manage Rooms
+                    </a>
+                    <a href="/professors" class="nav-link">
+                        <i class="bi bi-person-badge"></i> Manage Professors
+                    </a>
+                    <a href="/courses" class="nav-link">
+                        <i class="bi bi-book"></i> Manage Courses
+                    </a>
+                </div>
+
+                <!-- Teacher Only -->
+                <div th:if="${user.role == 'TEACHER'}">
+                    <a href="#my-schedule" class="nav-link">
+                        <i class="bi bi-calendar-check"></i> My Schedule
+                    </a>
+                    <a href="/availability" class="nav-link">
+                        <i class="bi bi-clock"></i> Set Availability
+                    </a>
+                </div>
+
+                <!-- Student Only -->
+                <div th:if="${user.role == 'STUDENT'}">
+                    <a href="#my-classes" class="nav-link">
+                        <i class="bi bi-mortarboard"></i> My Classes
+                    </a>
+                </div>
+
+                <a href="/notifications" class="nav-link position-relative">
+                    <i class="bi bi-bell"></i> Notifications
+                    <span class="notification-badge" th:text="${notificationCount}">3</span>
+                </a>
+                <a href="/profile" class="nav-link">
+                    <i class="bi bi-person"></i> Profile
+                </a>
+                <a href="/logout" class="nav-link text-danger">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                </a>
+            </nav>
         </div>
 
-        <!-- Add this after the Schedule Management heading -->
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        Notifications
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Schedule Management</h2>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary">
+                        <i class="bi bi-printer"></i> Print Schedule
+                    </button>
+                    <button class="btn btn-outline-primary">
+                        <i class="bi bi-download"></i> Export
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <!-- Admin Actions -->
+                <div th:if="${user.role == 'ADMIN'}" class="action-card" id="excel-upload">
+                    <i class="bi bi-file-earmark-excel"></i>
+                    <h5>Import Schedule</h5>
+                    <p>Upload Excel file to update schedules</p>
+                </div>
+                <div th:if="${user.role == 'ADMIN'}" class="action-card">
+                    <i class="bi bi-plus-circle"></i>
+                    <h5>Add Schedule</h5>
+                    <p>Manually add new schedule entries</p>
+                </div>
+
+                <!-- Teacher Actions -->
+                <div th:if="${user.role == 'TEACHER'}" class="action-card">
+                    <i class="bi bi-clock"></i>
+                    <h5>Set Availability</h5>
+                    <p>Update your teaching availability</p>
+                </div>
+
+                <!-- Common Actions -->
+                <div class="action-card">
+                    <i class="bi bi-calendar3"></i>
+                    <h5>View Schedule</h5>
+                    <p>View your current schedule</p>
+                </div>
+                <div class="action-card">
+                    <i class="bi bi-bell"></i>
+                    <h5>Notifications</h5>
+                    <p>Check your notifications</p>
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-white bg-primary">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Schedules</h5>
+                            <p class="card-text" th:text="${schedulesCount}">0</p>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <div class="list-group">
-                            <div th:each="notification : ${notifications}" class="list-group-item">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <p class="mb-1" th:text="${notification.message}"></p>
-                                    <small th:text="${#temporals.format(notification.sentAt, 'yyyy-MM-dd HH:mm')}"></small>
-                                </div>
-                            </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-success">
+                        <div class="card-body">
+                            <h5 class="card-title">Rooms</h5>
+                            <p class="card-text" th:text="${roomsCount}">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-info">
+                        <div class="card-body">
+                            <h5 class="card-title">Professors</h5>
+                            <p class="card-text" th:text="${professorsCount}">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-warning">
+                        <div class="card-body">
+                            <h5 class="card-title">Courses</h5>
+                            <p class="card-text" th:text="${coursesCount}">0</p>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        Notifications
-                    </div>
-                    <div class="card-body">
-                        <div class="list-group">
-                            <div th:each="notification : ${notifications}" class="list-group-item">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <p class="mb-1" th:text="${notification.message}"></p>
-                                    <small th:text="${#temporals.format(notification.sentAt, 'yyyy-MM-dd HH:mm')}"></small>
-                                </div>
-                            </div>
+
+            <!-- Excel Upload Form -->
+            <div class="card mb-4" id="excel-upload-section">
+                <div class="card-header">
+                    Import Schedules from Excel
+                </div>
+                <div class="card-body">
+                    <form th:action="@{/excel/upload}" method="post" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="file" class="form-label">Select Excel File</label>
+                            <input type="file" class="form-control" id="file" name="file" accept=".xlsx,.xls" required>
                         </div>
+                        <button type="submit" class="btn btn-primary">Upload</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Success message display -->
+            <div th:if="${param.success}" class="alert alert-success alert-dismissible fade show" role="alert">
+                File uploaded successfully!
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+
+            <!-- Timetable Section -->
+            <div class="row mt-4" id="timetable">
+                <div class="col-12">
+                    <h2>Timetable</h2>
+                    <div class="calendar-container">
+                        <div id="calendar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Schedule List By Day -->
+            <div class="card mb-4" th:each="day : ${schedulesByDay}">
+                <div class="card-header" th:text="${day.key}">Day</div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Room</th>
+                                    <th>Course</th>
+                                    <th>Professor</th>
+                                    <th>Section</th>
+                                    <th>Level</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="schedule : ${day.value}">
+                                    <td>
+                                        <span th:text="${#temporals.format(schedule.startTime, 'HH:mm')}"></span>
+                                        -
+                                        <span th:text="${#temporals.format(schedule.endTime, 'HH:mm')}"></span>
+                                    </td>
+                                    <td th:text="${schedule.room?.name}"></td>
+                                    <td th:text="${schedule.course?.description}"></td>
+                                    <td th:text="${schedule.professor?.name}"></td>
+                                    <td th:text="${schedule.section}"></td>
+                                    <td th:text="${schedule.level}"></td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Add New Schedule Form -->
-        <div class="card mb-4">
-            <div class="card-header">
-                Add New Schedule
-            </div>
-            <div class="card-body">
-                <form th:action="@{/schedules}" method="post" th:object="${newSchedule}">
-                    <div class="mb-3">
-                        <label class="form-label">Room</label>
-                        <select name="roomId" class="form-control" required>
-                            <option value="">Select Room</option>
-                            <option th:each="room : ${rooms}"
-                                    th:value="${room.id}"
-                                    th:text="${room.name}">
-                            </option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Professor</label>
-                        <select name="professorId" class="form-control" required>
-                            <option value="">Select Professor</option>
-                            <option th:each="professor : ${professors}"
-                                    th:value="${professor.id}"
-                                    th:text="${professor.name}">
-                            </option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Course</label>
-                        <select name="courseId" class="form-control" required>
-                            <option value="">Select Course</option>
-                            <option th:each="course : ${courses}"
-                                    th:value="${course.id}"
-                                    th:text="${course.description}">
-                            </option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Start Time</label>
-                        <input type="datetime-local" class="form-control" th:field="*{startTime}" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">End Time</label>
-                        <input type="datetime-local" class="form-control" th:field="*{endTime}" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Section</label>
-                        <input type="text" class="form-control" th:field="*{section}" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Level</label>
-                        <input type="text" class="form-control" th:field="*{level}" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Add Schedule</button>
-                </form>
-            </div>
-        </div>
-
-        <!-- Statistics Cards -->
-        <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="stats-card bg-primary">
-                    <h3>Total Schedules</h3>
-                    <p class="h2" th:text="${schedulesCount}">0</p>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card text-white bg-success">
-                    <div class="card-body">
-                        <h5 class="card-title">Rooms</h5>
-                        <p class="card-text" th:text="${roomsCount}">0</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card text-white bg-info">
-                    <div class="card-body">
-                        <h5 class="card-title">Professors</h5>
-                        <p class="card-text" th:text="${professorsCount}">0</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card text-white bg-warning">
-                    <div class="card-body">
-                        <h5 class="card-title">Courses</h5>
-                        <p class="card-text" th:text="${coursesCount}">0</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Schedule List By Day -->
-        <div class="card mb-4" th:each="day : ${schedulesByDay}">
-            <div class="card-header" th:text="${day.key}">Day</div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Time</th>
-                                <th>Room</th>
-                                <th>Course</th>
-                                <th>Professor</th>
-                                <th>Section</th>
-                                <th>Level</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr th:each="schedule : ${day.value}">
-                                <td>
-                                    <span th:text="${#temporals.format(schedule.startTime, 'HH:mm')}"></span>
-                                    -
-                                    <span th:text="${#temporals.format(schedule.endTime, 'HH:mm')}"></span>
-                                </td>
-                                <td th:text="${schedule.room?.name}"></td>
-                                <td th:text="${schedule.course?.description}"></td>
-                                <td th:text="${schedule.professor?.name}"></td>
-                                <td th:text="${schedule.section}"></td>
-                                <td th:text="${schedule.level}"></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- Course List -->
-        <h1>Course List</h1>
-        <table>
-            <thead>
-                <tr>
-                    <th>Description</th>
-                    <th>Professor</th>
-                    <th>Room</th>
-                    <th>Start Time</th>
-                    <th>End Time</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr th:each="course : ${courses}">
-                    <td th:text="${course.description}">Description</td>
-                    <td th:text="${course.professor.name}">Professor</td>
-                    <td th:text="${course.room.name}">Room</td>
-                    <td th:text="${course.startTime}">Start Time</td>
-                    <td th:text="${course.endTime}">End Time</td>
-                </tr>
-            </tbody>
-        </table>
     </div>
 
+    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.0/main.min.js'></script>
+    <script src="/js/timetable.js"></script>
+    <script>
+        // Add click handlers for action cards
+        document.querySelectorAll('.action-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const action = this.querySelector('h5').textContent.toLowerCase();
+                switch(action) {
+                    case 'import schedule':
+                        document.getElementById('excel-upload-section').scrollIntoView({ behavior: 'smooth' });
+                        break;
+                    case 'add schedule':
+                        window.location.href = '/schedule/add';
+                        break;
+                    case 'view schedule':
+                        document.getElementById('timetable').scrollIntoView({ behavior: 'smooth' });
+                        break;
+                    case 'set availability':
+                        window.location.href = '/availability';
+                        break;
+                    case 'notifications':
+                        window.location.href = '/notifications';
+                        break;
+                }
+            });
+        });
+
+        // Smooth scroll for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+    </script>
 </body>
 </html>

@@ -57,7 +57,7 @@ public class CourseController {
 
     @GetMapping("/courses")
     public String listCourses(Model model) {
-        List<Course> courses = courseService.findAllCourses();
+        List<Course> courses = courseService.getAllCourses();
         model.addAttribute("courses", courses);
         return "list";
     }
