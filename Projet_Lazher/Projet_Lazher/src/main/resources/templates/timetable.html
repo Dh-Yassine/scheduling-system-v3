@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISIMM - Timetable</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- FullCalendar CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">ISIMM Scheduling System</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/courses">Courses</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/professors">Professors</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/rooms">Rooms</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/timetable">Timetable</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/timetable/special">Special Events</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div id="timetable">
+            <div class="row">
+                <div class="col-12">
+                    <h2 class="text-center mb-4">ISIMM Timetable</h2>
+                    
+                    <!-- Professor Email Spinner -->
+                    <div class="row mb-4 justify-content-center">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header bg-primary text-white">
+                                    <h5 class="mb-0">Select Professor</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="form-group">
+                                        <label for="professorEmailSelect" class="form-label">Professor Email:</label>
+                                        <select id="professorEmailSelect" class="form-select form-select-lg" onchange="professorSelected(this)">
+                                            <option value="">All Professors</option>
+                                            <option th:each="professor : ${professors}" 
+                                                    th:value="${professor.id}" 
+                                                    th:text="${professor.email}"
+                                                    th:selected="${professor.id == selectedProfessorId}">
+                                                professor@isimm.tn
+                                            </option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="mt-3" th:if="${selectedProfessor != null}">
+                                        <div class="alert alert-info">
+                                            <strong>Selected Professor:</strong> 
+                                            <span th:text="${selectedProfessor.firstName + ' ' + selectedProfessor.lastName}">Professor Name</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Additional Filters (hidden by default, can be toggled) -->
+                    <div class="row mb-4" id="additionalFilters" style="display: none;">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="sectionFilter">Section:</label>
+                                <select id="sectionFilter" class="form-select">
+                                    <option value="all">All Sections</option>
+                                    <option value="L1">L1</option>
+                                    <option value="L2">L2</option>
+                                    <option value="L3_INFO">L3 INFO</option>
+                                    <option value="L3_SE">L3 SE</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="roomFilter">Room:</label>
+                                <select id="roomFilter" class="form-select">
+                                    <option value="all">All Rooms</option>
+                                    <option th:each="room : ${rooms}" 
+                                            th:value="${room.id}" 
+                                            th:text="${room.name}">
+                                        Room Name
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="dayFilter">Day:</label>
+                                <select id="dayFilter" class="form-select">
+                                    <option value="all">All Days</option>
+                                    <option value="Monday">Monday</option>
+                                    <option value="Tuesday">Tuesday</option>
+                                    <option value="Wednesday">Wednesday</option>
+                                    <option value="Thursday">Thursday</option>
+                                    <option value="Friday">Friday</option>
+                                    <option value="Saturday">Saturday</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Toggle Filters Button -->
+                    <div class="text-center mb-4">
+                        <button class="btn btn-outline-primary" onclick="toggleFilters()">
+                            <span id="toggleFiltersText">Show Additional Filters</span>
+                        </button>
+                    </div>
+                    
+                    <div class="calendar-container">
+                        <div id="calendar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Event Details Modal -->
+    <div class="modal fade" id="eventModal" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Course Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="modalBody">
+                    <!-- Event details will be inserted here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- FullCalendar JS -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js"></script>
+    
+    <!-- Custom JS -->
+    <script th:src="@{/js/timetable.js}"></script>
+    
+    <script>
+        // Function to handle professor selection
+        function professorSelected(selectElement) {
+            const professorId = selectElement.value;
+            if (professorId) {
+                window.location.href = '/timetable?professorId=' + professorId;
+            } else {
+                window.location.href = '/timetable';
+            }
+        }
+        
+        // Function to toggle additional filters
+        function toggleFilters() {
+            const filtersDiv = document.getElementById('additionalFilters');
+            const toggleText = document.getElementById('toggleFiltersText');
+            
+            if (filtersDiv.style.display === 'none') {
+                filtersDiv.style.display = 'flex';
+                toggleText.textContent = 'Hide Additional Filters';
+            } else {
+                filtersDiv.style.display = 'none';
+                toggleText.textContent = 'Show Additional Filters';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 package com.isimm.Projet_Lazher.service;
 
 import com.isimm.Projet_Lazher.model.Course;
+import com.isimm.Projet_Lazher.model.Professor;
 import com.isimm.Projet_Lazher.repository.CourseRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,8 +10,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -49,6 +53,59 @@ public class CourseService {
         return courseRepository.findBySection(section);
     }
 
+    /**
+     * Get courses by professor ID
+     */
+    public List<Course> getCoursesByProfessorId(Long professorId) {
+        // Find the professor first
+        Optional<Professor> professorOpt = professorService.findById(professorId);
+        if (!professorOpt.isPresent()) {
+            logger.warn("Professor with ID {} not found", professorId);
+            return new ArrayList<>();
+        }
+        
+        // Get all courses and filter by professor
+        List<Course> allCourses = courseRepository.findAll();
+        return allCourses.stream()
+                .filter(course -> course.getProfessor() != null && 
+                        course.getProfessor().getId().equals(professorId))
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Get special occasion courses
+     * These are courses with "SPO" or "Special" in their description or section
+     */
+    public List<Course> getSpecialCourses() {
+        List<Course> allCourses = courseRepository.findAll();
+        return allCourses.stream()
+                .filter(this::isSpecialCourse)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Check if a course is a special occasion course
+     */
+    private boolean isSpecialCourse(Course course) {
+        // Check if the description contains "SPO" or "Special"
+        if (course.getDescription() != null) {
+            String desc = course.getDescription().toLowerCase();
+            if (desc.contains("spo") || desc.contains("special")) {
+                return true;
+            }
+        }
+        
+        // Check if the section contains "SPO" or "Special"
+        if (course.getSection() != null) {
+            String section = course.getSection().toLowerCase();
+            if (section.contains("spo") || section.contains("special")) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
     @Transactional
     public Course saveCourse(Course course) {
         try {
@@ -60,22 +117,23 @@ public class CourseService {
                 logger.error("Cannot save course: Room is null or has no ID");
                 return null;
             }
-            if (course.getStartTime() == null || course.getEndTime() == null) {
-                logger.error("Cannot save course: Start or end time is null");
-                return null;
+            
+            // Ensure startTime and endTime are set
+            if (course.getStartTime() == null) {
+                logger.info("Setting default start time for course: {}", course.getDescription());
+                course.setStartTime(LocalDateTime.now().withHour(8).withMinute(0).withSecond(0).withNano(0));
             }
-
-            logger.info("Saving course: {}", course.getDescription());
-
-            Course savedCourse = courseRepository.save(course);
-            entityManager.flush();
-            entityManager.refresh(savedCourse);
-
-            logger.info("Successfully saved course with ID: {}", savedCourse.getId());
-            return savedCourse;
+            
+            if (course.getEndTime() == null) {
+                logger.info("Setting default end time for course: {}", course.getDescription());
+                course.setEndTime(course.getStartTime().plusHours(1).plusMinutes(30));
+            }
+            
+            // Save the course
+            return courseRepository.save(course);
         } catch (Exception e) {
-            logger.error("Error saving course: {} - Error: {}", course.getDescription(), e.getMessage());
-            throw new RuntimeException("Failed to save course", e);
+            logger.error("Error saving course: {}", e.getMessage(), e);
+            return null;
         }
     }
 

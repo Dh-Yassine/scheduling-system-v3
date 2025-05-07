@@ -8,20 +8,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     try {
-        // Get the current date
-        const today = new Date();
-        
-        // Calculate the start of the current week (Monday)
-        const startOfWeek = new Date(today);
-        const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
-        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Adjust to get Monday
-        startOfWeek.setDate(today.getDate() + diff);
-        
-        console.log('Start of week:', startOfWeek);
-        
         const calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'timeGridWeek',
-            initialDate: startOfWeek, // Start the calendar on Monday of the current week
             headerToolbar: {
                 left: 'prev,next today',
                 center: 'title',
@@ -32,12 +20,8 @@ document.addEventListener('DOMContentLoaded', function() {
             allDaySlot: false,
             slotDuration: '00:30:00',
             height: 'auto',
-            contentHeight: 450, // Increased content height to match container
             expandRows: true,
             nowIndicator: true,
-            firstDay: 1, // Start the week on Monday (0 = Sunday, 1 = Monday)
-            handleWindowResize: true,
-            stickyHeaderDates: true,
             eventTimeFormat: {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -50,11 +34,8 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             events: function(info, successCallback, failureCallback) {
                 console.log('Fetching events...');
-                console.log('Calendar view range:', info.start, 'to', info.end);
-                
                 fetch('/api/courses')
                     .then(response => {
-                        console.log('Response status:', response.status);
                         if (!response.ok) {
                             throw new Error('Network response was not ok: ' + response.statusText);
                         }
@@ -62,135 +43,90 @@ document.addEventListener('DOMContentLoaded', function() {
                     })
                     .then(data => {
                         console.log('Fetched courses:', data);
-                        
-                        if (!data || data.length === 0) {
-                            console.warn('No courses found in the database');
-                            successCallback([]);
-                            return;
-                        }
-                        
-                        // Process the original events
-                        const originalEvents = data.map(course => {
-                            console.log('Processing course:', course);
-                            
+                        const events = data.map(course => {
                             // Extract day from description (format: "Day - Description")
-                            let day = course.day || '';
+                            let day = '';
                             let description = course.description || 'Unknown Course';
                             
                             if (course.description && course.description.includes(' - ')) {
                                 const parts = course.description.split(' - ');
-                                // Only update description, day comes from the DTO
+                                day = parts[0];
                                 description = parts.slice(1).join(' - ');
                             }
                             
-                            console.log('Using day:', day, 'description:', description);
+                            // Parse the date based on the day of the week
+                            const today = new Date();
+                            const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+                            let dayOffset = 0;
                             
-                            // Create date objects from the ISO strings
-                            let startDate, endDate;
+                            switch(day.toLowerCase()) {
+                                case 'lundi': dayOffset = 1 - currentDay; break;
+                                case 'mardi': dayOffset = 2 - currentDay; break;
+                                case 'mercredi': dayOffset = 3 - currentDay; break;
+                                case 'jeudi': dayOffset = 4 - currentDay; break;
+                                case 'vendredi': dayOffset = 5 - currentDay; break;
+                                case 'samedi': dayOffset = 6 - currentDay; break;
+                                default: dayOffset = 0;
+                            }
                             
-                            // Set start and end times from the course times
+                            // If the day is in the past this week, schedule for next week
+                            if (dayOffset < 0) dayOffset += 7;
+                            
+                            // Create date objects for start and end times
+                            const startDate = new Date(today);
+                            startDate.setDate(today.getDate() + dayOffset);
+                            
+                            const endDate = new Date(startDate);
+                            
+                            // Set hours and minutes from the course times
                             if (course.startTime) {
                                 try {
-                                    console.log('Start time:', course.startTime);
-                                    startDate = new Date(course.startTime);
-                                    console.log('Parsed start date:', startDate, 'Day:', startDate.getDay(), 'Hours:', startDate.getHours());
+                                    const startParts = course.startTime.split('T')[1].split(':');
+                                    startDate.setHours(parseInt(startParts[0]), parseInt(startParts[1]), 0, 0);
                                 } catch (e) {
                                     console.warn('Error parsing startTime:', course.startTime, e);
-                                    // Default to current date at 8:00 AM
-                                    startDate = new Date();
+                                    // Default to 8:00 AM if parsing fails
                                     startDate.setHours(8, 0, 0, 0);
                                 }
                             } else {
-                                // Default to current date at 8:00 AM
-                                startDate = new Date();
+                                // Default to 8:00 AM if no startTime
                                 startDate.setHours(8, 0, 0, 0);
-                                console.warn('No start time provided for course:', course);
                             }
                             
                             if (course.endTime) {
                                 try {
-                                    console.log('End time:', course.endTime);
-                                    endDate = new Date(course.endTime);
-                                    console.log('Parsed end date:', endDate, 'Day:', endDate.getDay(), 'Hours:', endDate.getHours());
+                                    const endParts = course.endTime.split('T')[1].split(':');
+                                    endDate.setHours(parseInt(endParts[0]), parseInt(endParts[1]), 0, 0);
                                 } catch (e) {
                                     console.warn('Error parsing endTime:', course.endTime, e);
-                                    // Default to startTime + 1.5 hours
-                                    endDate = new Date(startDate.getTime() + (90 * 60 * 1000));
+                                    // Default to startTime + 1.5 hours if parsing fails
+                                    endDate.setTime(startDate.getTime() + (90 * 60 * 1000));
                                 }
                             } else {
-                                // Default to startTime + 1.5 hours
-                                endDate = new Date(startDate.getTime() + (90 * 60 * 1000));
-                                console.warn('No end time provided for course:', course);
+                                // Default to startTime + 1.5 hours if no endTime
+                                endDate.setTime(startDate.getTime() + (90 * 60 * 1000));
                             }
                             
-                            // Create the event data
                             return {
                                 id: course.id,
                                 title: `${description} (${course.section || 'Default'})`,
-                                start: startDate,
-                                end: endDate,
+                                start: startDate.toISOString(),
+                                end: endDate.toISOString(),
                                 extendedProps: {
-                                    professor: course.professorName || 'Unknown',
-                                    room: course.roomName || 'Unknown',
+                                    professor: course.professor ? course.professor.name : 'Unknown',
+                                    room: course.room ? course.room.name : 'Unknown',
                                     section: course.section || 'Default',
                                     day: day
                                 },
                                 backgroundColor: getEventColor(course.section),
                                 borderColor: getEventColor(course.section),
                                 textColor: '#ffffff',
-                                classNames: ['event-animation'],
-                                // Add recurrence rule to make events repeat weekly
-                                daysOfWeek: [startDate.getDay()],
-                                startTime: startDate.toTimeString().substring(0, 5),
-                                endTime: endDate.toTimeString().substring(0, 5),
-                                startRecur: info.start,
-                                endRecur: null // No end date for recurrence
+                                classNames: ['event-animation']
                             };
                         });
                         
-                        console.log('Processed events:', originalEvents);
-                        
-                        // Adapt events to the current view range
-                        const adaptedEvents = [];
-                        
-                        originalEvents.forEach(event => {
-                            // Get the day of week (0-6)
-                            const dayOfWeek = new Date(event.start).getDay();
-                            
-                            // Get the time part (hours and minutes)
-                            const startHours = new Date(event.start).getHours();
-                            const startMinutes = new Date(event.start).getMinutes();
-                            const endHours = new Date(event.end).getHours();
-                            const endMinutes = new Date(event.end).getMinutes();
-                            
-                            // Create a new event for the current view range
-                            const viewStart = new Date(info.start);
-                            const viewEnd = new Date(info.end);
-                            
-                            // Iterate through each day in the view range
-                            for (let day = new Date(viewStart); day < viewEnd; day.setDate(day.getDate() + 1)) {
-                                // If this day matches the event's day of week
-                                if (day.getDay() === dayOfWeek) {
-                                    // Create a new date with the correct day and time
-                                    const eventStart = new Date(day);
-                                    eventStart.setHours(startHours, startMinutes, 0, 0);
-                                    
-                                    const eventEnd = new Date(day);
-                                    eventEnd.setHours(endHours, endMinutes, 0, 0);
-                                    
-                                    // Create a new event for this occurrence
-                                    adaptedEvents.push({
-                                        ...event,
-                                        start: eventStart,
-                                        end: eventEnd,
-                                        id: `${event.id}-${day.toISOString().split('T')[0]}` // Unique ID for each occurrence
-                                    });
-                                }
-                            }
-                        });
-                        
-                        console.log('Adapted events for view range:', adaptedEvents);
-                        successCallback(adaptedEvents);
+                        console.log('Processed events:', events);
+                        successCallback(events);
                     })
                     .catch(error => {
                         console.error('Error fetching events:', error);

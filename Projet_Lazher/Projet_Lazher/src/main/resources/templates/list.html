@@ -521,67 +521,70 @@
 
         /* Calendar Styling */
         .calendar-container {
-            background-color: white;
-            padding: 2rem;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            margin: 2rem 0;
+    height: auto;
+    min-height: 900px;
+    margin-bottom: 2rem;
+    background: white;
+    padding: 2rem;
+    border-radius: 16px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+    overflow: visible;
+    width: 100%;
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+        
+        #calendar {
+            height: 100%;
+            width: 100%;
         }
-
-        .fc {
-            font-family: 'Poppins', sans-serif;
+        
+        /* FullCalendar Customization */
+        .fc-theme-standard .fc-scrollgrid {
+            border: 1px solid #e0e0e0;
         }
-
-        .fc-toolbar-title {
-            font-size: 1.3rem !important;
-            font-weight: 600 !important;
-            color: var(--primary-dark) !important;
+        
+        .fc-theme-standard th {
+            background-color: var(--primary-light);
+            color: var(--primary-dark);
+            font-weight: 600;
         }
-
-        .fc-button {
-            background: var(--primary-color) !important;
-            border: none !important;
-            box-shadow: 0 4px 6px rgba(26, 115, 232, 0.2) !important;
-            border-radius: 8px !important;
-            font-weight: 500 !important;
-            padding: 0.6rem 1rem !important;
-            transition: var(--transition) !important;
-        }
-
-        .fc-button:hover {
-            background: var(--primary-dark) !important;
-            transform: translateY(-2px) !important;
-            box-shadow: 0 6px 8px rgba(26, 115, 232, 0.3) !important;
-        }
-
-        .fc-day-today {
-            background-color: var(--light-blue) !important;
-        }
-
+        
         .fc-event {
+            border-radius: 4px;
+            padding: 3px;
+            font-size: 0.85rem;
+            border: none;
+        }
+        
+        .fc-event-title {
+            font-weight: 500;
+        }
+        
+        .fc-toolbar-title {
+            font-size: 1.4rem !important;
+            color: var(--primary-dark);
+            font-weight: 600;
+        }
+        
+        .fc-button-primary {
             background-color: var(--primary-color) !important;
-            border: none !important;
-            border-radius: 8px !important;
-            padding: 5px 8px !important;
-            font-size: 0.85rem !important;
-            font-weight: 500 !important;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-            transition: var(--transition) !important;
+            border-color: var(--primary-color) !important;
         }
-
-        .fc-event:hover {
-            transform: translateY(-2px) !important;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+        
+        .fc-button-primary:hover {
+            background-color: var(--primary-dark) !important;
+            border-color: var(--primary-dark) !important;
         }
-
-        .fc-daygrid-day-frame {
-            padding: 8px !important;
+        
+        .fc-daygrid-day-number {
+            font-weight: 500;
+            color: var(--text-dark);
         }
-
-        .fc-col-header-cell {
-            background-color: var(--primary-light) !important;
-            color: var(--primary-dark) !important;
-            font-weight: 600 !important;
+        
+        .fc-day-today {
+            background-color: rgba(26, 115, 232, 0.1) !important;
         }
 
         /* Form Styling */
@@ -743,13 +746,13 @@
         <div class="sidebar">
             <!-- ISIMM Logo -->
             <div class="isimm-logo">
-                <img src="isimm_logo.png" alt="ISIMM Logo">
+                <img th:src="@{/images/isimm_logo.png}" alt="ISIMM Logo">
                 <h3>ISIMM</h3>
             </div>
             
             <div class="user-profile">
                 <div class="avatar">
-                    <img src="avatar_logo.png" alt="User Avatar">
+                    <img th:src="@{/images/avatar_logo.png}" alt="User Avatar">
                 </div>
                 <div class="user-info">
                     <h4 th:text="${user != null ? user.name : 'Guest'}">User Name</h4>
@@ -964,10 +967,29 @@
         </div>
     </div>
 
+    <!-- Event Modal -->
+    <div class="modal fade" id="eventModal" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Course Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="modalBody">
+                    <!-- Event details will be populated here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.0/main.min.js'></script>
-    <script src="/js/timetable.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.0/locales-all.min.js"></script>
+    <script th:src="@{/js/timetable.js}"></script>
     <script>
         // Add click handlers for action cards
         document.querySelectorAll('.action-card').forEach(card => {

@@ -1,9 +1,9 @@
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Initializing calendar...');
-    const calendarEl = document.getElementById('calendar');
+    console.log('Initializing special occasion calendar...');
+    const calendarEl = document.getElementById('special-calendar');
     
     if (!calendarEl) {
-        console.error('Calendar element not found!');
+        console.error('Special calendar element not found!');
         return;
     }
     
@@ -19,20 +19,39 @@ document.addEventListener('DOMContentLoaded', function() {
         
         console.log('Start of week:', startOfWeek);
         
+        // Get the selected filters
+        let selectedProfessorId = null;
+        let selectedEventType = null;
+        let selectedRoomId = null;
+        
+        // Check URL parameters first
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('professorId')) {
+            selectedProfessorId = urlParams.get('professorId');
+            console.log('Professor ID from URL:', selectedProfessorId);
+            
+            // Update the professor select if it exists
+            const professorSelect = document.getElementById('professorFilter');
+            if (professorSelect) {
+                professorSelect.value = selectedProfessorId;
+            }
+        }
+        
+        // Initialize the calendar
         const calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'timeGridWeek',
             initialDate: startOfWeek, // Start the calendar on Monday of the current week
             headerToolbar: {
                 left: 'prev,next today',
                 center: 'title',
-                right: 'timeGridWeek,timeGridDay'
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
             },
             slotMinTime: '08:00:00',
             slotMaxTime: '20:00:00',
-            allDaySlot: false,
+            allDaySlot: true, // Allow all-day events for special occasions
             slotDuration: '00:30:00',
             height: 'auto',
-            contentHeight: 450, // Increased content height to match container
+            contentHeight: 600, // Set a fixed content height
             expandRows: true,
             nowIndicator: true,
             firstDay: 1, // Start the week on Monday (0 = Sunday, 1 = Monday)
@@ -49,10 +68,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 hour12: false
             },
             events: function(info, successCallback, failureCallback) {
-                console.log('Fetching events...');
+                console.log('Fetching special events...');
                 console.log('Calendar view range:', info.start, 'to', info.end);
                 
-                fetch('/api/courses')
+                // Get filters
+                selectedProfessorId = document.getElementById('professorFilter')?.value || 'all';
+                selectedEventType = document.getElementById('eventTypeFilter')?.value || 'all';
+                selectedRoomId = document.getElementById('roomFilter')?.value || 'all';
+                
+                // Determine the API endpoint
+                let apiUrl = '/api/courses/special';
+                if (selectedProfessorId && selectedProfessorId !== 'all') {
+                    apiUrl = `/api/courses/professor/${selectedProfessorId}`;
+                    console.log('Fetching special courses for professor:', selectedProfessorId);
+                }
+                
+                fetch(apiUrl)
                     .then(response => {
                         console.log('Response status:', response.status);
                         if (!response.ok) {
@@ -61,17 +92,20 @@ document.addEventListener('DOMContentLoaded', function() {
                         return response.json();
                     })
                     .then(data => {
-                        console.log('Fetched courses:', data);
+                        console.log('Fetched special courses:', data);
                         
                         if (!data || data.length === 0) {
-                            console.warn('No courses found in the database');
+                            console.warn('No special courses found');
                             successCallback([]);
+                            
+                            // Update the list view
+                            updateListView([]);
                             return;
                         }
                         
                         // Process the original events
                         const originalEvents = data.map(course => {
-                            console.log('Processing course:', course);
+                            console.log('Processing special course:', course);
                             
                             // Extract day from description (format: "Day - Description")
                             let day = course.day || '';
@@ -83,17 +117,13 @@ document.addEventListener('DOMContentLoaded', function() {
                                 description = parts.slice(1).join(' - ');
                             }
                             
-                            console.log('Using day:', day, 'description:', description);
-                            
                             // Create date objects from the ISO strings
                             let startDate, endDate;
                             
                             // Set start and end times from the course times
                             if (course.startTime) {
                                 try {
-                                    console.log('Start time:', course.startTime);
                                     startDate = new Date(course.startTime);
-                                    console.log('Parsed start date:', startDate, 'Day:', startDate.getDay(), 'Hours:', startDate.getHours());
                                 } catch (e) {
                                     console.warn('Error parsing startTime:', course.startTime, e);
                                     // Default to current date at 8:00 AM
@@ -109,9 +139,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             
                             if (course.endTime) {
                                 try {
-                                    console.log('End time:', course.endTime);
                                     endDate = new Date(course.endTime);
-                                    console.log('Parsed end date:', endDate, 'Day:', endDate.getDay(), 'Hours:', endDate.getHours());
                                 } catch (e) {
                                     console.warn('Error parsing endTime:', course.endTime, e);
                                     // Default to startTime + 1.5 hours
@@ -123,77 +151,57 @@ document.addEventListener('DOMContentLoaded', function() {
                                 console.warn('No end time provided for course:', course);
                             }
                             
+                            // Determine event type based on description
+                            let eventType = 'other';
+                            const descLower = description.toLowerCase();
+                            if (descLower.includes('exam')) {
+                                eventType = 'exam';
+                            } else if (descLower.includes('conference')) {
+                                eventType = 'conference';
+                            } else if (descLower.includes('workshop')) {
+                                eventType = 'workshop';
+                            }
+                            
+                            // Filter by event type if selected
+                            if (selectedEventType !== 'all' && eventType !== selectedEventType) {
+                                return null;
+                            }
+                            
+                            // Filter by room if selected
+                            if (selectedRoomId !== 'all' && course.roomId !== selectedRoomId) {
+                                return null;
+                            }
+                            
                             // Create the event data
                             return {
                                 id: course.id,
-                                title: `${description} (${course.section || 'Default'})`,
+                                title: `${description} (${course.section || 'Special'})`,
                                 start: startDate,
                                 end: endDate,
                                 extendedProps: {
                                     professor: course.professorName || 'Unknown',
                                     room: course.roomName || 'Unknown',
-                                    section: course.section || 'Default',
-                                    day: day
+                                    section: course.section || 'Special',
+                                    day: day,
+                                    eventType: eventType
                                 },
-                                backgroundColor: getEventColor(course.section),
-                                borderColor: getEventColor(course.section),
+                                backgroundColor: getEventColor(eventType),
+                                borderColor: getEventColor(eventType),
                                 textColor: '#ffffff',
-                                classNames: ['event-animation'],
-                                // Add recurrence rule to make events repeat weekly
-                                daysOfWeek: [startDate.getDay()],
-                                startTime: startDate.toTimeString().substring(0, 5),
-                                endTime: endDate.toTimeString().substring(0, 5),
-                                startRecur: info.start,
-                                endRecur: null // No end date for recurrence
+                                classNames: ['event-animation']
                             };
-                        });
+                        }).filter(event => event !== null); // Remove filtered events
                         
-                        console.log('Processed events:', originalEvents);
+                        console.log('Processed special events:', originalEvents);
                         
-                        // Adapt events to the current view range
-                        const adaptedEvents = [];
+                        // Update the list view
+                        updateListView(originalEvents);
                         
-                        originalEvents.forEach(event => {
-                            // Get the day of week (0-6)
-                            const dayOfWeek = new Date(event.start).getDay();
-                            
-                            // Get the time part (hours and minutes)
-                            const startHours = new Date(event.start).getHours();
-                            const startMinutes = new Date(event.start).getMinutes();
-                            const endHours = new Date(event.end).getHours();
-                            const endMinutes = new Date(event.end).getMinutes();
-                            
-                            // Create a new event for the current view range
-                            const viewStart = new Date(info.start);
-                            const viewEnd = new Date(info.end);
-                            
-                            // Iterate through each day in the view range
-                            for (let day = new Date(viewStart); day < viewEnd; day.setDate(day.getDate() + 1)) {
-                                // If this day matches the event's day of week
-                                if (day.getDay() === dayOfWeek) {
-                                    // Create a new date with the correct day and time
-                                    const eventStart = new Date(day);
-                                    eventStart.setHours(startHours, startMinutes, 0, 0);
-                                    
-                                    const eventEnd = new Date(day);
-                                    eventEnd.setHours(endHours, endMinutes, 0, 0);
-                                    
-                                    // Create a new event for this occurrence
-                                    adaptedEvents.push({
-                                        ...event,
-                                        start: eventStart,
-                                        end: eventEnd,
-                                        id: `${event.id}-${day.toISOString().split('T')[0]}` // Unique ID for each occurrence
-                                    });
-                                }
-                            }
-                        });
-                        
-                        console.log('Adapted events for view range:', adaptedEvents);
-                        successCallback(adaptedEvents);
+                        // Return the events for the calendar
+                        successCallback(originalEvents);
                     })
                     .catch(error => {
-                        console.error('Error fetching events:', error);
+                        console.error('Error fetching special events:', error);
                         failureCallback(error);
                     });
             },
@@ -206,20 +214,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <strong>${info.event.title}</strong><br>
                                 Room: ${info.event.extendedProps.room}<br>
                                 Professor: ${info.event.extendedProps.professor}<br>
-                                Day: ${info.event.extendedProps.day}
+                                Type: ${info.event.extendedProps.eventType}
                             `,
                             html: true,
                             placement: 'top',
                             container: 'body'
-                        });
-                        
-                        // Add event listeners for tooltip
-                        info.el.addEventListener('mouseenter', function() {
-                            tooltip.show();
-                        });
-                        
-                        info.el.addEventListener('mouseleave', function() {
-                            tooltip.hide();
                         });
                     }
                 } catch (e) {
@@ -240,7 +239,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <p><strong>Professor:</strong> ${info.event.extendedProps.professor}</p>
                                 <p><strong>Room:</strong> ${info.event.extendedProps.room}</p>
                                 <p><strong>Section:</strong> ${info.event.extendedProps.section}</p>
-                                <p><strong>Day:</strong> ${info.event.extendedProps.day}</p>
+                                <p><strong>Type:</strong> ${info.event.extendedProps.eventType}</p>
+                                <p><strong>Date:</strong> ${info.event.start.toLocaleDateString()}</p>
                                 <p><strong>Time:</strong> ${info.event.start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - 
                                     ${info.event.end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
                             `;
@@ -263,46 +263,126 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         calendar.render();
-        console.log('Calendar rendered successfully');
+        console.log('Special calendar rendered successfully');
         
-        // Add event listeners for filters if they exist
-        const sectionFilter = document.getElementById('sectionFilter');
+        // Add event listeners for filters
         const professorFilter = document.getElementById('professorFilter');
+        const eventTypeFilter = document.getElementById('eventTypeFilter');
         const roomFilter = document.getElementById('roomFilter');
-        
-        if (sectionFilter) {
-            sectionFilter.addEventListener('change', () => calendar.refetchEvents());
-        }
         
         if (professorFilter) {
             professorFilter.addEventListener('change', () => calendar.refetchEvents());
+        }
+        
+        if (eventTypeFilter) {
+            eventTypeFilter.addEventListener('change', () => calendar.refetchEvents());
         }
         
         if (roomFilter) {
             roomFilter.addEventListener('change', () => calendar.refetchEvents());
         }
     } catch (e) {
-        console.error('Error initializing calendar:', e);
+        console.error('Error initializing special calendar:', e);
     }
 });
 
-// Enhanced color scheme for sections
-function getEventColor(section) {
-    if (!section) return '#95a5a6'; // Default gray for null/undefined
+// Function to update the list view
+function updateListView(events) {
+    const listElement = document.getElementById('special-events-list');
+    if (!listElement) return;
     
+    if (!events || events.length === 0) {
+        listElement.innerHTML = '<tr><td colspan="6" class="text-center">No special events found</td></tr>';
+        return;
+    }
+    
+    // Sort events by date
+    events.sort((a, b) => new Date(a.start) - new Date(b.start));
+    
+    // Generate HTML for each event
+    let html = '';
+    events.forEach(event => {
+        const startDate = new Date(event.start);
+        const endDate = new Date(event.end);
+        
+        html += `
+            <tr>
+                <td>${event.title}</td>
+                <td>${event.extendedProps.professor}</td>
+                <td>${event.extendedProps.room}</td>
+                <td>${startDate.toLocaleDateString()}</td>
+                <td>${startDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - 
+                    ${endDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                <td>
+                    <button class="btn btn-sm btn-primary view-event" data-event-id="${event.id}">
+                        View
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    listElement.innerHTML = html;
+    
+    // Add event listeners to the view buttons
+    document.querySelectorAll('.view-event').forEach(button => {
+        button.addEventListener('click', function() {
+            const eventId = this.getAttribute('data-event-id');
+            const event = events.find(e => e.id === eventId);
+            
+            if (event) {
+                showEventDetails(event);
+            }
+        });
+    });
+}
+
+// Function to show event details
+function showEventDetails(event) {
+    try {
+        // Create and show modal using Bootstrap if available
+        const modalEl = document.getElementById('eventModal');
+        if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+            
+            if (modalTitle && modalBody) {
+                modalTitle.textContent = event.title;
+                modalBody.innerHTML = `
+                    <p><strong>Professor:</strong> ${event.extendedProps.professor}</p>
+                    <p><strong>Room:</strong> ${event.extendedProps.room}</p>
+                    <p><strong>Section:</strong> ${event.extendedProps.section}</p>
+                    <p><strong>Type:</strong> ${event.extendedProps.eventType}</p>
+                    <p><strong>Date:</strong> ${new Date(event.start).toLocaleDateString()}</p>
+                    <p><strong>Time:</strong> ${new Date(event.start).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - 
+                        ${new Date(event.end).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                `;
+                
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            } else {
+                console.warn('Modal title or body elements not found');
+                alert(`${event.title}\nProfessor: ${event.extendedProps.professor}\nRoom: ${event.extendedProps.room}`);
+            }
+        } else {
+            // Fallback to alert if modal or bootstrap is not available
+            alert(`${event.title}\nProfessor: ${event.extendedProps.professor}\nRoom: ${event.extendedProps.room}`);
+        }
+    } catch (e) {
+        console.warn('Error showing event details:', e);
+        alert(`${event.title}`);
+    }
+}
+
+// Get color for event type
+function getEventColor(eventType) {
     const colors = {
-        'L1': '#e74c3c',      // Red
-        'L2': '#3498db',      // Blue
-        'L3': '#2ecc71',      // Green
-        'M1': '#f1c40f',      // Yellow
-        'M2': '#9b59b6',      // Purple
-        'L1_INFO_SEC1': '#e74c3c',
-        'L2_INFO': '#3498db',
-        'L2_TIC': '#3498db',
-        'L3_INFO': '#2ecc71',
-        'L3_SE': '#2ecc71',
-        'Default': '#95a5a6'  // Gray
+        'exam': '#e74c3c',      // Red
+        'conference': '#3498db', // Blue
+        'workshop': '#2ecc71',   // Green
+        'other': '#9b59b6',      // Purple
+        'Default': '#95a5a6'     // Gray
     };
     
-    return colors[section] || colors['Default'];
+    return colors[eventType] || colors['Default'];
 }
