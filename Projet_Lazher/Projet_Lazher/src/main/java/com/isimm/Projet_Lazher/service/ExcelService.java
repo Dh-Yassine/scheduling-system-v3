@@ -12,9 +12,13 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class ExcelService {
+    
+    private static final Logger log = LoggerFactory.getLogger(ExcelService.class);
 
     @Autowired private ProfessorService professorService;
     @Autowired private RoomService roomService;
@@ -53,33 +57,72 @@ public class ExcelService {
 
     public void processExcelFile(MultipartFile file) throws IOException {
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+            log.info("Excel file opened successfully: {}, size: {} bytes", file.getOriginalFilename(), file.getSize());
+            
             Sheet sheet = workbook.getSheetAt(0);
+            log.info("Sheet name: {}, Physical rows: {}, Last row: {}", 
+                    sheet.getSheetName(), sheet.getPhysicalNumberOfRows(), sheet.getLastRowNum());
+            
+            // Debug: Print the first few rows to see the structure
+            log.info("Excel structure preview:");
+            for (int r = 0; r < Math.min(20, sheet.getLastRowNum()); r++) {
+                Row row = sheet.getRow(r);
+                if (row != null) {
+                    StringBuilder rowContent = new StringBuilder();
+                    rowContent.append(String.format("Row %d: ", r));
+                    for (int c = 0; c < 10; c++) { // Just first 10 columns
+                        String cellValue = getCellValue(sheet, r, c);
+                        if (!isEmpty(cellValue)) {
+                            rowContent.append(String.format("[Col %d: %s] ", c, cellValue));
+                        }
+                    }
+                    log.info(rowContent.toString());
+                }
+            }
             
             Map<String, Room> rooms = initializeRooms();
             Map<String, Professor> professors = new HashMap<>();
             List<Course> courses = new ArrayList<>();
 
+            log.info("Starting detailed Excel processing");
+            log.info("Room rows to process: {}", Arrays.toString(ROOM_ROWS));
+            log.info("Room columns to process: {}", Arrays.toString(ROOM_COLUMNS));
+            
             // Process each room row block
             for (int roomRowIndex : ROOM_ROWS) {
+                log.info("Processing room row: {}", roomRowIndex);
+                
                 // Process each day
                 for (int dayIndex = 0; dayIndex < DAYS.length; dayIndex++) {
                     // Get room from the room column
                     String roomName = getCellValue(sheet, roomRowIndex, ROOM_COLUMNS[dayIndex]);
-                    if (isEmpty(roomName)) continue;
+                    log.info("Room at day {}, row {}, col {}: '{}'", 
+                            DAYS[dayIndex], roomRowIndex, ROOM_COLUMNS[dayIndex], roomName);
+                    
+                    if (isEmpty(roomName)) {
+                        log.info("Empty room name, skipping this day/room combination");
+                        continue;
+                    }
                     
                     Room room = getOrCreateRoom(roomName, rooms);
+                    log.info("Processing room: {} (ID: {})", room.getName(), room.getId());
                     
                     // Process each time slot for this day
                     int startCol = TIME_SLOT_OFFSETS[dayIndex];
                     for (int slotIndex = 0; slotIndex < 6; slotIndex++) {
                         int currentCol = startCol + slotIndex;
+                        log.info("Processing time slot: {} at column {}", TIME_SLOTS[slotIndex], currentCol);
                         
                         // Get data from the three-row block
                         String section = getCellValue(sheet, roomRowIndex, currentCol);      // Same row as room
                         String professorName = getCellValue(sheet, roomRowIndex + 1, currentCol);  // One row below
                         String courseDesc = getCellValue(sheet, roomRowIndex + 2, currentCol);     // Two rows below
                         
+                        log.info("Cell data - Section: '{}', Professor: '{}', Course: '{}'", 
+                                section, professorName, courseDesc);
+                        
                         if (!isEmpty(professorName) && !isEmpty(courseDesc)) {
+                            log.info("Found valid course data");
                             Course course = createCourse(
                                 courseDesc,
                                 professorName,
@@ -90,21 +133,27 @@ public class ExcelService {
                                 professors
                             );
                             if (course != null) {
-                                System.out.println("Created course: " + courseDesc + " with professor: " + professorName + 
-                                    " in room: " + roomName + " for " + DAYS[dayIndex] + " at " + TIME_SLOTS[slotIndex]);
+                                log.info("Created course: {} with professor: {} in room: {} for {} at {}",
+                                    courseDesc, professorName, roomName, DAYS[dayIndex], TIME_SLOTS[slotIndex]);
                                 courses.add(course);
+                            } else {
+                                log.warn("Failed to create course with data - Section: {}, Professor: {}, Course: {}", 
+                                    section, professorName, courseDesc);
                             }
+                        } else {
+                            log.info("Incomplete course data, skipping");
                         }
                     }
                 }
             }
             
             // Save all courses
+            log.info("Attempting to save {} courses", courses.size());
             saveCourses(courses);
-            System.out.println("Successfully processed " + courses.size() + " courses");
+            log.info("Successfully processed {} courses", courses.size());
             
         } catch (Exception e) {
-            System.err.println("Error processing Excel file: " + e.getMessage());
+            log.error("Error processing Excel file: {}", e.getMessage());
             e.printStackTrace();
             throw new RuntimeException("Error processing Excel file: " + e.getMessage(), e);
         }
@@ -141,8 +190,8 @@ public class ExcelService {
             
             return course;
         } catch (Exception e) {
-            System.err.println("Error creating course: " + courseDesc + " with professor: " + professorName + 
-                " - " + e.getMessage());
+            log.error("Error creating course: {} with professor: {} - {}", 
+                courseDesc, professorName, e.getMessage());
             return null;
         }
     }
@@ -177,10 +226,10 @@ public class ExcelService {
             
             newProf = professorService.saveProfessor(newProf);
             professors.put(professorName, newProf);
-            System.out.println("Created new professor: " + professorName);
+            log.info("Created new professor: {}", professorName);
             return newProf;
         } catch (Exception e) {
-            System.err.println("Error processing professor: " + professorName + " - " + e.getMessage());
+            log.error("Error processing professor: {} - {}", professorName, e.getMessage());
             return null;
         }
     }
@@ -203,10 +252,10 @@ public class ExcelService {
             
             newRoom = roomService.saveRoom(newRoom);
             rooms.put(roomName, newRoom);
-            System.out.println("Created new room: " + roomName);
+            log.info("Created new room: {}", roomName);
             return newRoom;
         } catch (Exception e) {
-            System.err.println("Error processing room: " + roomName + " - " + e.getMessage());
+            log.error("Error processing room: {} - {}", roomName, e.getMessage());
             return null;
         }
     }
@@ -225,7 +274,7 @@ public class ExcelService {
             try {
                 courseService.saveCourse(course);
             } catch (Exception e) {
-                System.err.println("Error saving course: " + course.getDescription() + " - " + e.getMessage());
+                log.error("Error saving course: {} - {}", course.getDescription(), e.getMessage());
             }
         }
     }
@@ -239,15 +288,56 @@ public class ExcelService {
     private String getCellValue(Sheet sheet, int row, int col) {
         try {
             Row r = sheet.getRow(row);
-            if (r == null) return "";
+            if (r == null) {
+                log.debug("Row {} is null", row);
+                return "";
+            }
             
             Cell cell = r.getCell(col);
-            if (cell == null) return "";
+            if (cell == null) {
+                log.debug("Cell at row {}, col {} is null", row, col);
+                return "";
+            }
             
-            cell.setCellType(CellType.STRING);
-            return cell.getStringCellValue().trim();
+            String value;
+            try {
+                switch (cell.getCellType()) {
+                    case STRING:
+                        value = cell.getStringCellValue();
+                        break;
+                    case NUMERIC:
+                        if (DateUtil.isCellDateFormatted(cell)) {
+                            value = cell.getLocalDateTimeCellValue().toString();
+                        } else {
+                            value = String.valueOf(cell.getNumericCellValue());
+                        }
+                        break;
+                    case BOOLEAN:
+                        value = String.valueOf(cell.getBooleanCellValue());
+                        break;
+                    case FORMULA:
+                        try {
+                            value = cell.getStringCellValue();
+                        } catch (Exception e) {
+                            try {
+                                value = String.valueOf(cell.getNumericCellValue());
+                            } catch (Exception ex) {
+                                value = cell.getCellFormula();
+                            }
+                        }
+                        break;
+                    default:
+                        value = "";
+                }
+                return value.trim();
+            } catch (Exception e) {
+                // Fallback to STRING type if there's an error
+                log.debug("Error getting cell value, trying as STRING: {}", e.getMessage());
+                cell.setCellType(CellType.STRING);
+                return cell.getStringCellValue().trim();
+            }
         } catch (Exception e) {
-            System.err.println("Error reading cell at row " + row + ", col " + col + " - " + e.getMessage());
+            log.error("Error reading cell at row {}, col {} - {}", row, col, e.getMessage());
             return "";
         }
     }
