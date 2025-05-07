@@ -53,6 +53,10 @@ public class ProfessorService {
         return professorRepository.findByDepartment(department);
     }
 
+    public List<Professor> findByEmailLike(String emailPattern) {
+        return professorRepository.findByEmailLike(emailPattern);
+    }
+
     public void deleteProfessor(Long id) {
         professorRepository.deleteById(id);
     }
