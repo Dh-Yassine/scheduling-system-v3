@@ -22,7 +22,11 @@ public class TimetableController {
     private RoomService roomService;
     
     @GetMapping("/timetable")
-    public String showTimetable(Model model, @RequestParam(required = false) Long professorId) {
+    public String showTimetable(
+            Model model, 
+            @RequestParam(required = false) Long professorId,
+            @RequestParam(required = false) String section) {
+        
         // Add professors and rooms to the model for filtering
         List<Professor> professors = professorService.getAllProfessors();
         model.addAttribute("professors", professors);
@@ -35,6 +39,11 @@ public class TimetableController {
                 .filter(p -> p.getId().equals(professorId))
                 .findFirst()
                 .ifPresent(p -> model.addAttribute("selectedProfessor", p));
+        }
+        
+        // If a section is provided, set it as selected
+        if (section != null && !section.isEmpty()) {
+            model.addAttribute("selectedSection", section);
         }
         
         return "timetable";

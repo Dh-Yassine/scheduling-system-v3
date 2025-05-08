@@ -19,6 +19,35 @@ document.addEventListener('DOMContentLoaded', function() {
         
         console.log('Start of week:', startOfWeek);
         
+        // Get filter parameters from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        let selectedProfessorId = null;
+        let selectedSection = null;
+        
+        // Check for professor ID in URL
+        if (urlParams.has('professorId')) {
+            selectedProfessorId = urlParams.get('professorId');
+            console.log('Professor ID from URL:', selectedProfessorId);
+            
+            // Update the professor select if it exists
+            const professorSelect = document.getElementById('professorEmailSelect');
+            if (professorSelect) {
+                professorSelect.value = selectedProfessorId;
+            }
+        }
+        
+        // Check for section in URL
+        if (urlParams.has('section')) {
+            selectedSection = urlParams.get('section');
+            console.log('Section from URL:', selectedSection);
+            
+            // Update the section select if it exists
+            const sectionSelect = document.getElementById('sectionFilter');
+            if (sectionSelect) {
+                sectionSelect.value = selectedSection;
+            }
+        }
+        
         const calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'timeGridWeek',
             initialDate: startOfWeek, // Start the calendar on Monday of the current week
@@ -52,7 +81,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('Fetching events...');
                 console.log('Calendar view range:', info.start, 'to', info.end);
                 
-                fetch('/api/courses')
+                // Determine the API endpoint based on filters
+                let apiUrl = '/api/courses';
+                
+                // Professor filter takes precedence over section filter
+                if (selectedProfessorId && selectedProfessorId !== 'all') {
+                    apiUrl = `/api/courses/professor/${selectedProfessorId}`;
+                    console.log('Fetching courses for professor:', selectedProfessorId);
+                } 
+                // If no professor selected but section is selected
+                else if (selectedSection && selectedSection !== 'all') {
+                    apiUrl = `/api/courses/section/${selectedSection}`;
+                    console.log('Fetching courses for section:', selectedSection);
+                }
+                
+                fetch(apiUrl)
                     .then(response => {
                         console.log('Response status:', response.status);
                         if (!response.ok) {
@@ -267,8 +310,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Add event listeners for filters if they exist
         const sectionFilter = document.getElementById('sectionFilter');
-        const professorFilter = document.getElementById('professorFilter');
-        const roomFilter = document.getElementById('roomFilter');
+        const professorFilter = document.getElementById('professorEmailSelect');
         
         if (sectionFilter) {
             sectionFilter.addEventListener('change', () => calendar.refetchEvents());
@@ -276,10 +318,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (professorFilter) {
             professorFilter.addEventListener('change', () => calendar.refetchEvents());
-        }
-        
-        if (roomFilter) {
-            roomFilter.addEventListener('change', () => calendar.refetchEvents());
         }
     } catch (e) {
         console.error('Error initializing calendar:', e);

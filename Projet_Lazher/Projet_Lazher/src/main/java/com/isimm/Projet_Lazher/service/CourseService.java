@@ -12,6 +12,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -41,34 +42,52 @@ public class CourseService {
         return courseRepository.findByDescription(courseDescription).orElse(null);
     }
 
-    public List<Course> getCoursesByProfessor(Long professorId) {
-        return courseRepository.findByProfessorId(professorId);
-    }
-
     public List<Course> getCoursesByRoom(Long roomId) {
         return courseRepository.findByRoomId(roomId);
-    }
-
-    public List<Course> getCoursesBySection(String section) {
-        return courseRepository.findBySection(section);
     }
 
     /**
      * Get courses by professor ID
      */
     public List<Course> getCoursesByProfessorId(Long professorId) {
-        // Find the professor first
-        Optional<Professor> professorOpt = professorService.findById(professorId);
-        if (!professorOpt.isPresent()) {
-            logger.warn("Professor with ID {} not found", professorId);
-            return new ArrayList<>();
+        logger.info("Looking for courses with professor ID: {}", professorId);
+        
+        // Get all courses
+        List<Course> allCourses = courseRepository.findAll();
+        logger.info("Total courses found: {}", allCourses.size());
+        
+        // Filter courses by professor ID
+        List<Course> filteredCourses = allCourses.stream()
+                .filter(course -> {
+                    if (course.getProfessor() == null) {
+                        return false;
+                    }
+                    
+                    boolean matches = course.getProfessor().getId().equals(professorId);
+                    if (matches) {
+                        logger.info("Found matching course: {} with professor ID: {}", 
+                                course.getDescription(), course.getProfessor().getId());
+                    }
+                    return matches;
+                })
+                .collect(Collectors.toList());
+        
+        logger.info("Filtered courses count: {}", filteredCourses.size());
+        return filteredCourses;
+    }
+    
+    /**
+     * Get courses by section
+     */
+    public List<Course> getCoursesBySection(String section) {
+        if (section == null || section.isEmpty()) {
+            return Collections.emptyList();
         }
         
-        // Get all courses and filter by professor
         List<Course> allCourses = courseRepository.findAll();
         return allCourses.stream()
-                .filter(course -> course.getProfessor() != null && 
-                        course.getProfessor().getId().equals(professorId))
+                .filter(course -> course.getSection() != null && 
+                        course.getSection().equalsIgnoreCase(section))
                 .collect(Collectors.toList());
     }
     

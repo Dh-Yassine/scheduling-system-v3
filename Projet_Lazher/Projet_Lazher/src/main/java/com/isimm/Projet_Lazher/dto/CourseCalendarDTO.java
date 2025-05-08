@@ -24,6 +24,75 @@ public class CourseCalendarDTO {
     private String endTime;
     private String day;
 
+    /**
+     * Default constructor
+     */
+    public CourseCalendarDTO() {
+    }
+    
+    /**
+     * Static factory method to create a DTO from a Course
+     */
+    public static CourseCalendarDTO fromCourse(Course course) {
+        CourseCalendarDTO dto = new CourseCalendarDTO();
+        dto.id = course.getId();
+        dto.description = course.getDescription();
+        dto.section = course.getSection();
+        
+        // Handle professor
+        Professor professor = course.getProfessor();
+        dto.professorName = professor != null ? professor.getName() : "Unknown";
+        
+        // Handle room
+        Room room = course.getRoom();
+        dto.roomName = room != null ? room.getName() : "Unknown";
+        
+        // Extract day from description (format: "Day - Description")
+        if (course.getDescription() != null && course.getDescription().contains(" - ")) {
+            String[] parts = course.getDescription().split(" - ", 2);
+            dto.day = parts[0].trim();
+        } else {
+            dto.day = "Monday"; // Default day
+        }
+        
+        // Get the appropriate date for the day of week
+        LocalDate date = dto.getDateForDay(dto.day);
+        
+        // Format times as ISO strings
+        DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+        
+        // Handle start time
+        if (course.getStartTime() != null) {
+            // Use the time from the course but the date from the day of week
+            LocalTime time = course.getStartTime().toLocalTime();
+            LocalDateTime dateTime = LocalDateTime.of(date, time);
+            dto.startTime = dateTime.format(formatter);
+        } else {
+            // Default to 8:00 AM on the appropriate day
+            dto.startTime = LocalDateTime.of(date, LocalTime.of(8, 0))
+                .format(formatter);
+        }
+        
+        // Handle end time
+        if (course.getEndTime() != null) {
+            // Use the time from the course but the date from the day of week
+            LocalTime time = course.getEndTime().toLocalTime();
+            LocalDateTime dateTime = LocalDateTime.of(date, time);
+            dto.endTime = dateTime.format(formatter);
+        } else if (course.getStartTime() != null) {
+            // Default to start time + 1.5 hours
+            LocalTime time = course.getStartTime().toLocalTime().plusHours(1).plusMinutes(30);
+            LocalDateTime dateTime = LocalDateTime.of(date, time);
+            dto.endTime = dateTime.format(formatter);
+        } else {
+            // Default to 9:30 AM on the appropriate day
+            dto.endTime = LocalDateTime.of(date, LocalTime.of(9, 30))
+                .format(formatter);
+        }
+        
+        return dto;
+    }
+
     public CourseCalendarDTO(Course course) {
         this.id = course.getId();
         this.description = course.getDescription();

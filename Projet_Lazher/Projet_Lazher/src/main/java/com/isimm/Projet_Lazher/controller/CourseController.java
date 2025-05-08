@@ -30,51 +30,23 @@ public class CourseController {
     public List<CourseCalendarDTO> getCoursesForCalendar() {
         List<Course> courses = courseService.getAllCourses();
         
-        System.out.println("Found " + courses.size() + " courses in the database");
+        // Debug information
+        logger.info("Found {} courses in the database", courses.size());
         
-        // Debug the first few courses
-        if (!courses.isEmpty()) {
-            int count = Math.min(courses.size(), 3);
-            for (int i = 0; i < count; i++) {
-                Course course = courses.get(i);
-                System.out.println("Course " + (i+1) + ": " + course.getDescription() + 
-                                  ", Start: " + course.getStartTime() + 
-                                  ", End: " + course.getEndTime());
-            }
-        }
+        // Convert to DTOs
+        List<CourseCalendarDTO> dtos = courses.stream()
+                .map(CourseCalendarDTO::fromCourse)
+                .collect(Collectors.toList());
         
-        // Convert courses to DTOs with proper time handling
-        List<CourseCalendarDTO> courseDTOs = courses.stream()
-            .map(CourseCalendarDTO::new)
-            .collect(Collectors.toList());
+        logger.info("Converted to {} DTOs", dtos.size());
         
-        System.out.println("Converted to " + courseDTOs.size() + " DTOs");
-        
-        // Debug the first few DTOs
-        if (!courseDTOs.isEmpty()) {
-            int count = Math.min(courseDTOs.size(), 3);
-            for (int i = 0; i < count; i++) {
-                CourseCalendarDTO dto = courseDTOs.get(i);
-                System.out.println("DTO " + (i+1) + ": " + dto.getDescription() + 
-                                  ", Day: " + dto.getDay() + 
-                                  ", Start: " + dto.getStartTime() + 
-                                  ", End: " + dto.getEndTime());
-            }
-        }
-        
-        return courseDTOs;
+        return dtos;
     }
 
     @GetMapping("/api/courses/{id}")
     @ResponseBody
     public ResponseEntity<Course> getCourseById(@PathVariable Long id) {
         return ResponseEntity.ok(courseService.getCourseById(id));
-    }
-
-    @GetMapping("/api/courses/professor/{professorId}")
-    @ResponseBody
-    public ResponseEntity<List<Course>> getCoursesByProfessor(@PathVariable Long professorId) {
-        return ResponseEntity.ok(courseService.getCoursesByProfessor(professorId));
     }
 
     @GetMapping("/api/courses/room/{roomId}")
@@ -108,11 +80,46 @@ public class CourseController {
      */
     @GetMapping("/api/courses/professor/{professorId}")
     @ResponseBody
-    public List<CourseCalendarDTO> getCoursesByProfessor(@PathVariable Long professorId) {
-        List<Course> courses = courseService.getCoursesByProfessorId(professorId);
+    public List<CourseCalendarDTO> getCoursesByProfessorId(@PathVariable Long professorId) {
+        logger.info("API request: Fetching courses for professor ID: {}", professorId);
         
-        // Debug information
-        logger.info("Found {} courses for professor ID {}", courses.size(), professorId);
+        // Get courses for the professor
+        List<Course> courses = courseService.getCoursesByProfessorId(professorId);
+        logger.info("Found {} courses for professor ID: {}", courses.size(), professorId);
+        
+        // Log course details for debugging
+        if (courses.isEmpty()) {
+            logger.warn("No courses found for professor ID: {}", professorId);
+        } else {
+            for (Course course : courses) {
+                logger.info("Course: {}, Start: {}, End: {}, Section: {}, Professor: {}", 
+                    course.getDescription(),
+                    course.getStartTime(),
+                    course.getEndTime(),
+                    course.getSection(),
+                    course.getProfessor() != null ? course.getProfessor().getName() : "Unknown");
+            }
+        }
+        
+        // Convert to DTOs
+        List<CourseCalendarDTO> dtos = courses.stream()
+                .map(CourseCalendarDTO::fromCourse)
+                .collect(Collectors.toList());
+        
+        logger.info("Converted to {} DTOs", dtos.size());
+        
+        return dtos;
+    }
+    
+    /**
+     * Get courses by section
+     */
+    @GetMapping("/api/courses/section/{section}")
+    @ResponseBody
+    public List<CourseCalendarDTO> getCoursesBySection(@PathVariable String section) {
+        logger.info("Fetching courses for section: {}", section);
+        List<Course> courses = courseService.getCoursesBySection(section);
+        logger.info("Found {} courses for section: {}", courses.size(), section);
         
         // Convert to DTOs
         List<CourseCalendarDTO> dtos = courses.stream()
